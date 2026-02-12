@@ -69,12 +69,12 @@ app.post<{ body: Product }, ProductWithId>('/products', async (reqCtx) => {
   }
 });
 ```
-- The `reqCtx.valid.req.*` fields will alway be there in your handler if they executed successfully. They will also be there for any middleware as the validation is implemented as
+- The `reqCtx.valid.req.*` fields will always be there in your handler if they executed successfully. They will also be there for any middleware as validation is implemented as
 middleware and always executes first.
-- The `reqCtx.valid.res.body` field is only available after the handler has run. This means if you try to access it in middleware before the `next()` callback or in the handler itself, you will get a null error. I've noticed that the types don't seem to convey this, you can happily do `reqCtx.valid.res.body` without using optional chaining and you won;t get any errors,
+- The `reqCtx.valid.res.body` field is only available after the handler has run. This means if you try to access it in middleware before the `next()` callback or in the handler itself, you will get a null error. I've noticed that the types don't seem to convey this, you can happily do `reqCtx.valid.res.body` without using optional chaining and you won't get any errors,
 - The `TypedRequestContext` type is not exported so you can't create middleware specifically for
-validated requests without using ts-ignore until we fix that.
-- While the validated response will be available in middleware, you won't get compile time guarantees as the between the handlers and other middleware are not hooked up.
+validated requests without using `ts-ignore` until we fix that.
+- While the validated response will be available in middleware, you won't get compile time guarantees as the handlers and other middleware are not hooked up.
 - If you only add response validation then TypeScript can infer the types even without generics:
 ```ts
 app.get(
@@ -120,5 +120,41 @@ app.post<{ body: Product }, ProductWithId>('/products', async (reqCtx) => {
     }
   }
 });
+```
 - `app.get<{ query: ProductQuery }, ProductWithId[]>` if you use Zod to coerce the values in a query string to a type other than string you get a compile error because the underlying type we
-have for query params is `Record<string, string>`. This means that in our product example, it is not possible to validate if the `minPrice` param is positive without losing compile time guarantees: `app.get<never, ProductWithId[]>`. The same goes for path params.
+have for query params is `Record<string, string>`. This means that in our product example, it is not possible to validate if the `minPrice` param is positive without losing compile time guarantees:
+```ts
+export const ProductQuerySchema = z.object({
+  category: z.string().optional(),
+  minPrice: z.string().optional(),
+  maxPrice: z.string().optional(),
+});
+
+// ...
+
+app.get<{ query: ProductQuery }, ProductWithId[]>(
+  '/products',
+  async (reqCtx) => {
+    const { category, minPrice, maxPrice } = reqCtx.valid.req.query;
+    
+    // ...
+
+    if (category) {
+      products = products.filter(p => p.category === category);
+    }
+    if (minPrice) {
+      // if we could do minPrice: z.coerce.number().positive().optional() here,
+      // we wouldn't need this parseFloat
+      products = products.filter(p => p.price >= Number.parseFloat(minPrice));
+    }
+    if (maxPrice) {
+      products = products.filter(p => p.price <= Number.parseFloat(maxPrice));
+    }
+
+    return products;
+  },
+  {
+    validation: { req: { query: ProductQuerySchema }, res: { body: ProductListSchema } },
+  }
+);
+```
