@@ -25,6 +25,12 @@ export const ProductQuerySchema = z.object({
   maxPrice: z.string().optional(),
 });
 
+export const ProductQuerySchemaStrict = z.object({
+  category: z.string().optional(),
+  minPrice: z.coerce.number().positive().optional(),
+  maxPrice: z.coerce.number().positive().optional(),
+});
+
 export type ApiKeyHeader = z.infer<typeof ApiKeyHeaderSchema>;
 export type Product = z.infer<typeof ProductSchema>;
 export type ProductWithId = z.infer<typeof ProductWithIdSchema>;

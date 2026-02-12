@@ -1,11 +1,12 @@
-import { Router, NotFoundError } from '@aws-lambda-powertools/event-handler-inferred/http';
-import type { Middleware, TypedRequestContext } from '@aws-lambda-powertools/event-handler-inferred/types';
+// @ts-nocheck
+import { Router, NotFoundError } from '@aws-lambda-powertools/event-handler/http';
+import type { Middleware } from '@aws-lambda-powertools/event-handler/types';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'crypto';
 import type { Context, APIGatewayProxyResult, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
-import { ProductSchema, ProductWithIdSchema, ProductPathSchema, ProductListSchema, ApiKeyHeaderSchema, ProductQuerySchemaStrict } from './schemas';
-import type { Product, ProductWithId } from './schemas';
+import { ProductSchema, ProductWithIdSchema, ProductPathSchema, ProductListSchema, ApiKeyHeaderSchema, ProductQuerySchema } from './schemas';
+import type { Product, ProductWithId, ProductPath, ApiKeyHeader, ProductQuery } from './schemas';
 import { z } from 'zod';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -14,18 +15,18 @@ const INVERTED_INDEX_NAME = process.env.INVERTED_INDEX_NAME!;
 
 const app = new Router();
 
-app.get(
+app.get<{ query: ProductQuery }, ProductWithId[]>(
   '/products',
   async (reqCtx) => {
     const { category, minPrice, maxPrice } = reqCtx.valid.req.query;
-
+    
     const result = await client.send(new QueryCommand({
       TableName: TABLE_NAME,
       IndexName: INVERTED_INDEX_NAME,
       KeyConditionExpression: 'sk = :sk',
       ExpressionAttributeValues: { ':sk': 'PRODUCTS' }
     }));
-
+    
     let products = (result.Items || []).map(({ pk, sk, ...product }) => {
       const id = pk.replace('PRODUCTS#', '');
       return { id, ...product as Product };
@@ -35,20 +36,20 @@ app.get(
       products = products.filter(p => p.category === category);
     }
     if (minPrice) {
-      products = products.filter(p => p.price >= minPrice);
+      products = products.filter(p => p.price >= Number.parseFloat(minPrice));
     }
     if (maxPrice) {
-      products = products.filter(p => p.price <= maxPrice);
+      products = products.filter(p => p.price <= Number.parseFloat(maxPrice));
     }
 
     return products;
   },
   {
-    validation: { req: { query: ProductQuerySchemaStrict }, res: { body: ProductListSchema } },
+    validation: { req: { query: ProductQuerySchema }, res: { body: ProductListSchema } },
   }
 );
 
-app.get(
+app.get<{ path: ProductPath }, ProductWithId>(
   '/products/:id',
   async (reqCtx) => {
     const { id } = reqCtx.valid.req.path;
@@ -56,11 +57,11 @@ app.get(
       TableName: TABLE_NAME,
       Key: { pk: `PRODUCTS#${id}`, sk: 'PRODUCTS' }
     }));
-
+    
     if (!result.Item) {
       throw new NotFoundError('Product not found');
     }
-
+    
     const { pk, sk, ...product } = result.Item;
     return { id, ...product as Product };
   },
@@ -71,7 +72,6 @@ app.get(
 
 app.get(
   '/product-invalid',
-  // @ts-expect-error - missing id field
   async () => {
     const product: Product = { name: 'Test', price: 10, category: 'Test' };
     return product;
@@ -92,7 +92,7 @@ app.get(
   '/res-body',
   [validResMiddleware],
   (reqCtx) => {
-    return { hasResBody: true }
+    return {hasResBody: true}
   },
   {
     validation: { res: { body: z.object({ hasResBody: z.boolean() }) } },
@@ -109,25 +109,7 @@ app.get(
   }
 );
 
-app.get('/products-no-res-val', (reqCtx) => {
-  const product = reqCtx.valid.req.body;
-  return { id: '123', ...product } satisfies ProductWithId;
-}, {
-  validation: {
-    req: {
-      body: ProductSchema
-    }
-  }
-});
-
-app.get<ProductWithId>(
-  '/product-generic-no-validation',
-  async () => {
-    return { id: '1234', name: 'Test', price: 10, category: 'Test' };
-  }
-);
-
-app.get(
+app.get<{ headers: ApiKeyHeader }>(
   '/protected',
   (reqCtx) => {
     const apiKey = reqCtx.valid.req.headers['x-api-key'];
@@ -138,7 +120,7 @@ app.get(
   }
 );
 
-app.post('/products', async (reqCtx) => {
+app.post<{ body: Product }, ProductWithId>('/products', async (reqCtx) => {
   const product = reqCtx.valid.req.body;
 
   const id = randomUUID();
@@ -155,7 +137,7 @@ app.post('/products', async (reqCtx) => {
   }
 });
 
-app.delete(
+app.delete<{ path: ProductPath }>(
   '/products/:id',
   async (reqCtx) => {
     const { id } = reqCtx.valid.req.path;
@@ -163,7 +145,7 @@ app.delete(
       TableName: TABLE_NAME,
       Key: { pk: `PRODUCTS#${id}`, sk: 'PRODUCTS' }
     }));
-
+    
     return new Response(null, { status: 204 });
   },
   {
