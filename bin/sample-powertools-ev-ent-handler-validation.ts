@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
 import { SamplePowertoolsEvEntHandlerValidationStack } from '../lib/sample-powertools-ev-ent-handler-validation-stack';
+import { STACK_NAME } from '../lib/constants';
 
 const app = new cdk.App();
-new SamplePowertoolsEvEntHandlerValidationStack(app, 'SamplePowertoolsEvEntHandlerValidationStack', {
+new SamplePowertoolsEvEntHandlerValidationStack(app, STACK_NAME, {
   /* If you don't specify 'env', this stack will be environment-agnostic.
    * Account/Region-dependent features and context lookups will not work,
    * but a single synthesized template can be deployed anywhere. */

@@ -1,3 +1,5 @@
+import { test } from 'vitest';
+
 // import * as cdk from 'aws-cdk-lib/core';
 // import { Template } from 'aws-cdk-lib/assertions';
 // import * as SamplePowertoolsEvEntHandlerValidation from '../lib/sample-powertools-ev-ent-handler-validation-stack';

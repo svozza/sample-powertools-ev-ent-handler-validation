@@ -7,20 +7,25 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "jest",
+    "test": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "cdk": "cdk"
   },
   "devDependencies": {
-    "@types/jest": "^30",
+    "@aws-sdk/client-cloudformation": "^3.988.0",
+    "@types/aws-lambda": "^8.10.160",
     "@types/node": "^24.10.1",
-    "jest": "^30",
-    "ts-jest": "^29",
     "aws-cdk": "2.1105.0",
     "ts-node": "^10.9.2",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@aws-lambda-powertools/event-handler": "file:aws-lambda-powertools-event-handler-2.31.0.tgz",
+    "@aws-sdk/client-dynamodb": "^3.988.0",
+    "@aws-sdk/lib-dynamodb": "^3.988.0",
     "aws-cdk-lib": "^2.237.1",
-    "constructs": "^10.0.0"
+    "constructs": "^10.0.0",
+    "zod": "^4.3.6"
   }
 }
